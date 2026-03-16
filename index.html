@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>世界模型 - 最新资讯中心</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f7f7f7; padding: 20px; }
+        h1 { font-size: 28px; margin: 0; }
+        .subtitle { color: #666; margin-bottom: 20px; }
+        .news-item { background: white; padding: 15px; margin-bottom: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.08); }
+        .title { font-size: 18px; font-weight: bold; color: #0066cc; text-decoration: none; }
+        .title:hover { text-decoration: underline; }
+        .date { color: #999; font-size: 12px; margin: 5px 0; }
+        .desc { color: #444; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+<h1>🌍 世界模型 · 最新资讯中心</h1>
+<p class="subtitle">自动抓取 · 自动更新 · 世界模型 / AI / 科技 / 融资</p>
+
+<div id="news-container">正在抓取资讯，请稍候...</div>
+
+<script>
+// 关键词
+const keywords = [
+    "world model AI",
+    "世界模型",
+    "AI world model",
+    "generative world model",
+    "model-based AI"
+];
+
+// 构造 Bing RSS URL
+function buildRSSUrl(keyword) {
+    return `https://www.bing.com/news/search?q=${encodeURIComponent(keyword)}&format=rss`;
+}
+
+// 使用 CORS 代理（GitHub Pages 可用）
+function proxy(url) {
+    return `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+}
+
+// 抓取 RSS
+async function fetchRSS(url) {
+    const response = await fetch(proxy(url));
+    const text = await response.text();
+    const parser = new DOMParser();
+    return parser.parseFromString(text, "text/xml");
+}
+
+// 解析 RSS
+function parseRSS(xml) {
+    const items = xml.querySelectorAll("item");
+    let results = [];
+    items.forEach(item => {
+        results.push({
+            title: item.querySelector("title")?.textContent || "",
+            link: item.querySelector("link")?.textContent || "",
+            pubDate: item.querySelector("pubDate")?.textContent || "",
+            description: item.querySelector("description")?.textContent || ""
+        });
+    });
+    return results;
+}
+
+// 主函数
+async function loadNews() {
+    const container = document.getElementById("news-container");
+    container.innerHTML = "正在抓取资讯，请稍候...";
+
+    let allNews = [];
+
+    for (let kw of keywords) {
+        try {
+            const xml = await fetchRSS(buildRSSUrl(kw));
+            const news = parseRSS(xml);
+            allNews = allNews.concat(news);
+        } catch (e) {
+            console.error("抓取失败：", kw, e);
+        }
+    }
+
+    if (allNews.length === 0) {
+        container.innerHTML = "暂时没有抓到相关新闻，请稍后再试。";
+        return;
+    }
+
+    // 去重
+    const unique = [];
+    const titles = new Set();
+    allNews.forEach(n => {
+        if (!titles.has(n.title)) {
+            titles.add(n.title);
+            unique.push(n);
+        }
+    });
+
+    // 按时间排序
+    unique.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
+
+    // 只显示前 20 条
+    const topNews = unique.slice(0, 20);
+
+    // 渲染
+    container.innerHTML = "";
+    topNews.forEach(n => {
+        const div = document.createElement("div");
+        div.className = "news-item";
+        div.innerHTML = `
+            <a href="${n.link}" target="_blank" class="title">${n.title}</a>
+            <div class="date">${n.pubDate ? new Date(n.pubDate).toLocaleString() : ""}</div>
+            <div class="desc">${n.description}</div>
+        `;
+        container.appendChild(div);
+    });
+}
+
+loadNews();
+</script>
+
+</body>
+</html>
