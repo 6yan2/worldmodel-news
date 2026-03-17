@@ -2,22 +2,89 @@
 <html lang="zh">
 <head>
     <meta charset="UTF-8">
-    <title>世界模型 - 最新资讯中心</title>
+    <title>世界模型 - 最新资讯中心（App 风格）</title>
     <style>
-        body { font-family: Arial, sans-serif; background: #f7f7f7; padding: 20px; }
-        h1 { font-size: 28px; margin: 0; }
-        .subtitle { color: #666; margin-bottom: 20px; }
-        .news-item { background: white; padding: 15px; margin-bottom: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.08); }
-        .title { font-size: 18px; font-weight: bold; color: #0066cc; text-decoration: none; }
-        .title:hover { text-decoration: underline; }
-        .date { color: #999; font-size: 12px; margin: 5px 0; }
-        .desc { color: #444; font-size: 14px; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial;
+            background: #f2f2f7;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            font-size: 26px;
+            margin: 0 0 10px 0;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        /* 过滤器按钮区域 */
+        .filter-bar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .filter-btn {
+            padding: 8px 14px;
+            border-radius: 20px;
+            border: none;
+            background: #e5e5ea;
+            color: #333;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .filter-btn.active {
+            background: #007aff;
+            color: white;
+        }
+
+        /* App 风格卡片 */
+        .news-item {
+            background: white;
+            padding: 18px;
+            margin-bottom: 18px;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+
+        .title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #007aff;
+            text-decoration: none;
+        }
+
+        .date {
+            color: #999;
+            font-size: 12px;
+            margin: 8px 0;
+        }
+
+        .desc {
+            color: #444;
+            font-size: 14px;
+            line-height: 1.5;
+        }
     </style>
 </head>
 <body>
 
 <h1>🌍 世界模型 · 最新资讯中心</h1>
-<p class="subtitle">自动抓取 · 自动更新 · 世界模型 / AI / 科技 / 融资</p>
+<p class="subtitle">自动抓取 · App 风格 · 最近 24 小时 / 7 天过滤</p>
+
+<!-- 时间过滤器 -->
+<div class="filter-bar">
+    <button class="filter-btn active" onclick="applyFilter('all')">全部</button>
+    <button class="filter-btn" onclick="applyFilter('24h')">最近 24 小时</button>
+    <button class="filter-btn" onclick="applyFilter('7d')">最近 7 天</button>
+</div>
 
 <div id="news-container">正在抓取资讯，请稍候...</div>
 
@@ -31,17 +98,16 @@ const keywords = [
     "model-based AI"
 ];
 
-// 构造 Bing RSS URL
+let allNewsGlobal = []; // 保存所有新闻，供过滤器使用
+
 function buildRSSUrl(keyword) {
     return `https://www.bing.com/news/search?q=${encodeURIComponent(keyword)}&format=rss`;
 }
 
-// 使用 CORS 代理（GitHub Pages 可用）
 function proxy(url) {
     return `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
 }
 
-// 抓取 RSS
 async function fetchRSS(url) {
     const response = await fetch(proxy(url));
     const text = await response.text();
@@ -49,7 +115,6 @@ async function fetchRSS(url) {
     return parser.parseFromString(text, "text/xml");
 }
 
-// 解析 RSS
 function parseRSS(xml) {
     const items = xml.querySelectorAll("item");
     let results = [];
@@ -64,7 +129,6 @@ function parseRSS(xml) {
     return results;
 }
 
-// 主函数
 async function loadNews() {
     const container = document.getElementById("news-container");
     container.innerHTML = "正在抓取资讯，请稍候...";
@@ -81,11 +145,6 @@ async function loadNews() {
         }
     }
 
-    if (allNews.length === 0) {
-        container.innerHTML = "暂时没有抓到相关新闻，请稍后再试。";
-        return;
-    }
-
     // 去重
     const unique = [];
     const titles = new Set();
@@ -99,12 +158,16 @@ async function loadNews() {
     // 按时间排序
     unique.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
 
-    // 只显示前 20 条
-    const topNews = unique.slice(0, 20);
+    allNewsGlobal = unique; // 保存全局
 
-    // 渲染
+    renderNews(unique);
+}
+
+function renderNews(list) {
+    const container = document.getElementById("news-container");
     container.innerHTML = "";
-    topNews.forEach(n => {
+
+    list.slice(0, 20).forEach(n => {
         const div = document.createElement("div");
         div.className = "news-item";
         div.innerHTML = `
@@ -114,6 +177,26 @@ async function loadNews() {
         `;
         container.appendChild(div);
     });
+}
+
+// 时间过滤器
+function applyFilter(type) {
+    document.querySelectorAll(".filter-btn").forEach(btn => btn.classList.remove("active"));
+    event.target.classList.add("active");
+
+    const now = Date.now();
+
+    let filtered = allNewsGlobal;
+
+    if (type === "24h") {
+        filtered = allNewsGlobal.filter(n => now - new Date(n.pubDate) <= 24 * 60 * 60 * 1000);
+    }
+
+    if (type === "7d") {
+        filtered = allNewsGlobal.filter(n => now - new Date(n.pubDate) <= 7 * 24 * 60 * 60 * 1000);
+    }
+
+    renderNews(filtered);
 }
 
 loadNews();
